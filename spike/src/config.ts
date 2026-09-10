@@ -1,0 +1,71 @@
+import * as dotenv from "dotenv";
+import { ethers } from "ethers";
+
+dotenv.config();
+
+// ---------------------------------------------------------------------------
+// Every address / endpoint below is sourced from official docs. Do not change
+// them without re-checking the source page. Sources:
+//
+// - Monad testnet RPC + chain id + explorers:
+//     https://docs.monad.xyz/developer-essentials/testnet
+//       RPC  : https://testnet-rpc.monad.xyz
+//       Chain: 10143 (0x279f)
+//       Explorer: https://testnet.monadvision.com | https://testnet.monadscan.com
+//
+// - Kuru testnet contracts + official testnet USDC + MON-USDC market:
+//     https://docs.kuru.io/contracts/Contract-addresses
+// ---------------------------------------------------------------------------
+
+export const CHAIN_ID = 10143;
+export const EXPLORER = "https://testnet.monadvision.com";
+
+export const RPC_URL =
+  process.env.RPC_URL || "https://testnet-rpc.monad.xyz";
+
+export const PRIVATE_KEY = process.env.PRIVATE_KEY || "";
+export const WALLET_ADDRESS = process.env.WALLET_ADDRESS || "";
+
+// --- Kuru testnet contracts (https://docs.kuru.io/contracts/Contract-addresses) ---
+export const KURU_ROUTER_TESTNET = "0x7EFbE105Ca7415dE98F96622173458ac1c054630";
+export const KURU_MARGIN_TESTNET = "0xd029C2D98ff85D8F64799017fE00a59B1159CE02";
+export const KURU_FORWARDER_TESTNET = "0x681bB1508E14433b148a2549ba2726454aDc9BB4";
+export const KURU_DEPLOYER_TESTNET = "0xDacd06372cEb638640c9D8466A023b7362324e1A";
+export const KURU_UTILS_TESTNET = "0xE0841E0F06c5770C1D4930EC6C507ee33199C88C";
+
+// --- Official Kuru testnet tokens / markets (https://docs.kuru.io/contracts/Contract-addresses) ---
+export const TESTNET_USDC = "0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570";
+export const TESTNET_USDC_DECIMALS = 6;
+export const KURU_MON_USDC_MARKET_TESTNET = "0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9";
+
+// --- Token / market parameters for the spike ---
+export const SPIKE_NAME = "Spike Test Token";
+export const SPIKE_SYMBOL = "SPIKE";
+export const SPIKE_DECIMALS = 18;
+export const SPIKE_INITIAL_SUPPLY = "1000000"; // 1M SPIKE to the deployer
+
+// Market: 1 SPIKE = 0.001 USDC at creation
+export const MARKET_TYPE = 0; // NO_NATIVE: both base and quote are ERC-20
+export const TARGET_PRICE_QUOTE = 1; // 1 USDC
+export const TARGET_PRICE_BASE = 1000; // per 1000 SPIKE  -> 0.001 USDC/SPIKE
+export const MAX_PRICE = 0.01; // max expected price in USDC
+export const MIN_SIZE = 100; // min order size in SPIKE
+export const TICK_SIZE_BPS = 10; // 0.1%
+export const TAKER_FEE_BPS = 30;
+export const MAKER_FEE_BPS = 10;
+export const KURU_AMM_SPREAD = ethers.BigNumber.from(100); // 1%
+
+// Order sizes for the spike (human units). Note: IOC.placeMarket SELL size is in
+// BASE units (SPIKE), minAmountOut is in QUOTE units (USDC).
+export const LIMIT_BUY_SIZE = "1000"; // SPIKE to buy (maker, uses margin)
+export const LIMIT_BUY_PRICE = "0.001"; // USDC per SPIKE
+export const MARKET_SELL_SIZE = "900"; // SPIKE to sell (taker, from wallet)
+export const MARKET_SELL_MIN_OUT = "0.8"; // min USDC received (gross ≈ 0.9, net ≈ 0.8973)
+export const MARGIN_DEPOSIT_USDC = "2"; // margin deposit for the limit buy (1.0 + buffer)
+export const SPIKE_MINT_TO_SELF = "1000000"; // SPIKE minted to the wallet for selling
+
+export function getWalletAddress(): string {
+  if (WALLET_ADDRESS) return WALLET_ADDRESS;
+  if (!PRIVATE_KEY) throw new Error("PRIVATE_KEY not set in .env");
+  return new ethers.Wallet(PRIVATE_KEY).address;
+}
