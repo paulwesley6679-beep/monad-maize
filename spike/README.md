@@ -3,36 +3,67 @@
 Technical spike for the Monad Metropolis project. Everything here runs on
 **Monad testnet (chain id `10143`)** — no mainnet, no real value.
 
-Goal: on testnet, deploy a placeholder ERC-20 (`SPIKE`), create a Kuru orderbook
-market pairing `SPIKE` against **Kuru's official testnet USDC**, place one
-post-only limit order and one fill-or-kill market order so a real trade
-executes, and verify the trade on-chain.
+Goal: on testnet, deploy a placeholder ERC-20 (`SPIKE`, 18 decimals) as the
+_base_ and a second self-deployed, mintable, 6-decimal ERC-20 (`MOCKUSD`) as the
+_quote_, create a Kuru orderbook market for `SPIKE/MOCKUSD` through the official
+Router, place one post-only limit order (maker) and one fill-or-kill market
+order (taker) so a real trade executes, and verify everything on-chain.
+
+Using a self-deployed quote token removes the only external dependency (the
+official testnet USDC has no public mint) — the only outside input needed is a
+little testnet MON for gas.
 
 ```
-┌─────────────┐   ┌──────────────────────────────────────────────────┐
-│ spike.ts    │──▶│ 1. Deploy SPIKE (SpikeToken.sol)                  │
-│ (npm run    │   │ 2. Router.deployProxy → SPIKE/USDC market         │
-│  spike)     │   │    quote = official testnet USDC  (Contract-      │
-│             │   │    addresses page)                                │
-│             │   │ 3. Deposit USDC into MarginAccount (maker bid)    │
-│             │   │ 4. GTC.placeLimit  BUY 1000 SPIKE @ 0.001, post   │
-│             │   │ 5. IOC.placeMarket SELL 900 SPIKE (fill-or-kill)  │
-│             │   │ 6. Verify: Trade events, L2 book, balances        │
-└─────────────┘   └──────────────────────────────────────────────────┘
+┌─────────────┐   ┌──────────────────────────────────────────────────────┐
+│ spike.ts    │──▶│ 1. Deploy SPIKE (SpikeToken.sol, 18 dec)             │
+│ (npm run    │   │ 2. Deploy MOCKUSD (MockUSD.sol, 6 dec) — the quote   │
+│  spike)     │   │ 3. Router.deployProxy → SPIKE/MOCKUSD market         │
+│             │   │ 4. Deposit MOCKUSD into MarginAccount (maker bid)    │
+│             │   │ 5. GTC.placeLimit  BUY 1000 SPIKE @ 0.001, postOnly  │
+│             │   │ 6. IOC.placeMarket SELL 900 SPIKE (fill-or-kill)     │
+│             │   │ 7. Verify: Trade events, L2 book, balances, s_orders │
+└─────────────┘   └──────────────────────────────────────────────────────┘
 ```
 
 ## Status
 
 - [x] All official Kuru testnet addresses verified live via `eth_getCode`
       (`scripts/probe.ts`)
-- [x] SPIKE token compiles and deploys (`scripts/compile.ts`,
-      `contracts/SpikeToken.sol`)
-- [x] Preflight + funding gates implemented and tested
-      (`scripts/spike.ts` stops with clear instructions when the wallet is
-      unfunded)
-- [ ] **Full trade execution blocked on wallet funding** (see
-      [Funding prerequisites](#funding-prerequisites)) — the runnable script is
-      complete; a funded wallet is the only missing input.
+- [x] SPIKE + MOCKUSD compile and deploy (`scripts/compile.ts`,
+      `contracts/*.sol`)
+- [x] Preflight + funding gate implemented and tested (script stops with
+      clear instructions when the wallet has no MON)
+- [x] **Full end-to-end executed on-chain** (2026-09-11) — see
+      [Executed run](#executed-run--on-chain-artifacts)
+
+## Executed run — on-chain artifacts
+
+All deployed/traded by `npm run spike` on Monad testnet with the disposable
+wallet `0x0f2a7EAd457b6bbe6d6a47f5470D722ABAcb58da`:
+
+| Step | Address / tx | Notes |
+|---|---|---|
+| SPIKE token | `0xf006DfDa51cD5aA065D88D76FB2f334f55c8D4E4` | deploy `0xe9961f12…b03747` |
+| MOCKUSD token | `0x528A2eB86BBf65C0FDD7d7811fc3a618B17A2934` | deploy `0x832e21f6…7cc875`, 1,000,000 minted to deployer |
+| SPIKE/MOCKUSD market | `0x99304360eDd53451fd0A07316dDb00fdDA7B0F16` | deploy `0x8cb6c634…b0497937`; vault `0xA6D3E93963Ff1097bFf3ccBc83688FcB2aF92B77` |
+| Margin deposit | `0xaebd525e…cf31b65` | 2 MOCKUSD into MarginAccount |
+| Limit buy (maker) | `0xe8cb47f6…e479307` | orderId 3, 1000 SPIKE @ 0.001 post-only |
+| Market sell (taker) | `0x1deb01d1…c54e79` | 900 SPIKE @ 0.001, filled 9000000 raw (= 900 SPIKE) |
+
+Last run's verification output:
+
+```
+Order book after trade:  bids: [[0.001, 300]]   asks: []
+wallet SPIKE   : 997300.0
+wallet MOCKUSD : 999994.6919
+maker order struct (s_orders): size 3000000 raw = 300 SPIKE, price 1000 raw = 0.001, isBuy true
+```
+
+The maker bid rests because we sell 900 of the 1000 bought (post-trade the
+order holds the remaining 300 after previous runs' fills — each `npm run spike`
+re-run places a fresh bid and sells against the old rest first, which is exactly
+how a real book behaves). Balances reconcile exactly with the math in
+[The trade plan](#the-trade-plan).
 
 ## Addresses used (all from official docs)
 
@@ -46,10 +77,9 @@ executes, and verify the trade on-chain.
 | Kuru Forwarder | `0x681bB1508E14433b148a2549ba2726454aDc9BB4` | same |
 | Kuru MonadDeployer | `0xDacd06372cEb638640c9D8466A023b7362324e1A` | same |
 | KuruUtils | `0xE0841E0F06c5770C1D4930EC6C507ee33199C88C` | same |
-| Official testnet USDC | `0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570` (6 dec) | same |
-| Official MON/USDC market | `0xa241896A7Dbe8a550D2E5fF7A914bB1989ceD2D9` | same |
 | SPIKE token | deployed by the script | `contracts/SpikeToken.sol` |
-| SPIKE/USDC market | deployed by the script via Router | `ParamCreator.deployMarket` |
+| MOCKUSD token | deployed by the script | `contracts/MockUSD.sol` |
+| SPIKE/MOCKUSD market | deployed by the script via Router | `ParamCreator.deployMarket` |
 
 No address, RPC, or endpoint is invented: every constant in `src/config.ts`
 carries its doc source in a comment.
@@ -60,9 +90,9 @@ Market parameters (computed by `ParamCreator.calculatePrecisions(1, 1000, 0.01, 
 
 | Parameter | Value | Meaning |
 |---|---|---|
-| `pricePrecision` | `1_000_000` | price fixed at 6 decimals |
-| `sizePrecision` | `10_000` | size fixed at 4 decimals |
-| `tickSize` | `1` | `0.000001` USDC |
+| `pricePrecision` | `1_000_000` | price fixed at 6 decimals (MOCKUSD) |
+| `sizePrecision` | `10_000` | size fixed at 4 decimals (SPIKE) |
+| `tickSize` | `1` | `0.000001` MOCKUSD |
 | `minSize` | `1_000_000` | `100` SPIKE |
 | `maxSize` | `10_000_000_000` | `1_000_000` SPIKE |
 | `takerFeeBps` / `makerFeeBps` | `30` / `10` | fees |
@@ -70,42 +100,48 @@ Market parameters (computed by `ParamCreator.calculatePrecisions(1, 1000, 0.01, 
 
 Order flow:
 
-1. Deposit `2` testnet USDC into the Kuru `MarginAccount` (powers the maker bid).
-2. `GTC.placeLimit` — **maker**: BUY `1000` SPIKE @ `0.001` USDC, `postOnly: true`
-   → `OrderCreated`, order rests in the book.
-3. `IOC.placeMarket` — **taker**: SELL `900` SPIKE, `minAmountOut: 0.8` USDC,
-   `fillOrKill: true` → fills `900` SPIKE @ `0.001` against the maker bid
-   (`Trade` event: `filledSize = 9_000_000` in sizePrecision units, `price = 1000`
-   in pricePrecision units).
-4. Verify: `Trade` events on the sell receipt, L2 book (maker bid shrinks from
+1. Mint SPIKE (1,000,000) and MOCKUSD (1,000,000) to the wallet — both tokens
+   are deployed by the script, nothing is needed from outside.
+2. Deposit `2` MOCKUSD into the Kuru `MarginAccount` (powers the maker bid).
+3. `GTC.placeLimit` — **maker**: BUY `1000` SPIKE @ `0.001` MOCKUSD,
+   `postOnly: true` → `OrderCreated`, order rests in the book.
+4. `IOC.placeMarket` — **taker**: SELL `900` SPIKE, `minAmountOut: 0.8`
+   MOCKUSD, `fillOrKill: true` → fills `900` SPIKE @ `0.001` against the maker
+   bid (`Trade` event: `filledSize = 9_000_000` raw, `price = 1000` raw).
+5. Verify: `Trade` events on the sell receipt, L2 book (maker bid shrinks from
    `1000` to `100` SPIKE), wallet balances, and the maker order struct
-   (`s_orders`).
+   (`s_orders` — size/price are stored in precision units, i.e. `10^n`
+   multipliers, so the reader formats with `log10(sizePrecision)` decimals).
 
-Expected balances after the trade (approx):
+Expected balances after one fresh run (approx):
 
 - wallet SPIKE: `1_000_000 - 900 = 999_100`
-- wallet USDC: `~0.8973` (900 × 0.001 − 0.3% taker fee)
+- wallet MOCKUSD: `1_000_000 - 2 (deposit) + 0.8973 (900 × 0.001 − 0.3% taker fee) ≈ 999_998.8973`
 - maker bid remaining: `100` SPIKE @ `0.001`
+
+Fees observed: maker pays `makerFeeBps=10` on the fill, taker pays
+`takerFeeBps=30`; both are deducted in the quote token.
 
 ## Funding prerequisites
 
 The disposable test wallet (`0x0f2a7EAd457b6bbe6d6a47f5470D722ABAcb58da`,
-see `.env`) currently holds **0 MON / 0 USDC**, which blocks the on-chain part.
-Funding is intentionally human/browser-in-the-loop:
+see `.env`) only needs **testnet MON for gas**. It currently holds ~3 MON.
+Funding is a one-time browser action:
 
-1. **Testnet MON (gas)** — `https://faucet.monad.xyz`. The faucet back-end
-   (`https://faucet.molandak.org/api/v1/faucet`) requires a Cloudflare Turnstile
-   token + FingerprintJS visitor id, so it cannot be automated with curl/CLI.
-2. **Testnet USDC** — Kuru's official tUSDC has **no public mint**. It must come
-   from an existing holder or the Kuru app (testnet faucet / Lite Swap
-   MON→USDC at `https://www.kuru.io`). Send `>= 2` tUSDC to the wallet above.
+- **Testnet MON (gas)** — `https://faucet.monad.xyz`. The faucet back-end
+  (`https://faucet.molandak.org/api/v1/faucet`) requires a Cloudflare Turnstile
+  token + FingerprintJS visitor id, so it cannot be automated with curl/CLI.
 
-> Note: Monad reset its testnet from genesis on 2025-12-16 (current version
-> v0.15.2). The token list at
-> `raw.githubusercontent.com/monad-crypto/token-list/main/tokenlist-testnet.json`
-> lists a *different* USDC (`0x534b2f3A...`); the **Kuru official testnet USDC**
-> (`0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570`) is the one this spike trades
-> against, per the Kuru contract-addresses page.
+**No external USDC is needed** — the `SPIKE/MOCKUSD` market uses only the
+self-deployed tokens that `spike.ts` mints itself.
+
+> Earlier investigation (kept for context): the plan originally paired SPIKE
+> against **Kuru's official testnet USDC** (`0x3bA3d39AFcf8bb994f7964B3e0171Ea2Ba361570`, the
+> quote token of the official MON-USDC market), but that token has **no public
+> mint** and its market/AMM are empty, so there was no scriptable way to acquire
+> it. `scripts/usdc-check.ts` also proved the Circle/Monad-token-list USDC
+> (`0x534b2f3A…`, a real FiatToken proxy) is a *different* token and cannot fund
+> Kuru markets. Custom MOCKUSD removes the entire problem.
 
 ## How to run
 
@@ -113,31 +149,45 @@ Funding is intentionally human/browser-in-the-loop:
 cd spike
 npm install          # already done; ethers 5.7.1, tsx, solc, @kuru-labs/kuru-sdk 0.0.95
 cp .env.example .env # fill PRIVATE_KEY (disposable key already in .env)
-npm run compile      # builds artifacts/SpikeToken.json
-npm run spike        # end-to-end: deploy token+market, trade, verify
+npm run compile      # builds artifacts/*.json (SpikeToken + MockUSD)
+npm run spike        # end-to-end: deploy tokens+market, trade, verify
 ```
 
 Re-runnability:
 
 - Unfunded wallet → script stops at the preflight with funding instructions.
 - Funded wallet → script deploys and trades, then writes
-  `.spike-result.json` (token/market/trade hashes).
-- To continue a previous partially-run deployment, set
-  `SPIKE_TOKEN_ADDRESS` and/or `MARKET_ADDRESS` in `.env`; the script reuses
-  them and skips redeployment (leftover resting orders from earlier runs can
-  stack — cancel manually if needed for a pristine book).
+  `.spike-result.json` (token/market/trade hashes — gitignored).
+- To continue a previous run instead of re-deploying, set
+  `SPIKE_TOKEN_ADDRESS`, `MOCKUSD_ADDRESS` and/or `MARKET_ADDRESS` in `.env`;
+  the script reuses them (minting is skipped when balances already suffice).
+  Leftover resting orders from earlier runs can stack — cancel manually if you
+  want a pristine book.
+
+Known RPC quirks (all handled inside `spike.ts`):
+
+- The public RPC intermittently drops connections (`ECONNRESET`/`ETIMEDOUT`);
+  every `wait(1)` is wrapped in a retry, and a fixed `gasLimit` (2,000,000)
+  skips the flakiest call (`eth_estimateGas`).
+- **Do not hardcode a small `gasPrice`**: Monad rejects
+  `Transaction fee too low` below ~102 gwei. The script leaves the gas price to
+  `provider.getGasPrice()`.
 
 ## Supporting scripts
 
 | Script | Purpose | Status |
 |---|---|---|
-| `scripts/compile.ts` | solc → `artifacts/SpikeToken.json` | works |
-| `scripts/probe.ts` | docs-address audit (`eth_getCode`), market params, USDC mint probe, wallet balances | works |
-| `scripts/swap-probe.ts` | check whether MON→USDC is swappable through the official MON/USDC market (`anyToAnySwap` eth_call); proved the market + AMM vault are empty | works |
+| `scripts/compile.ts` | solc → `artifacts/*.json` (all contracts in `contracts/`) | works |
+| `scripts/probe.ts` | docs-address audit (`eth_getCode`), market params, wallet balances | works |
+| `scripts/usdc-check.ts` | historical: proves Kuru testnet USDC (`0x3bA3..570`) ≠ Circle/Monad-list USDC (`0x534b..3A3`) | works |
+| `scripts/swap-probe.ts` | historical: whether MON→USDC is swappable via the empty official market | works |
 | `scripts/l2.ts` | L2 book reader | works |
-| `scripts/spike.ts` | the end-to-end script (this spike) | works; needs funded wallet |
+| `scripts/spike.ts` | the end-to-end script (this spike) | **works — executed end-to-end** |
 | `scripts/scan.ts` | historical event scan | blocked by public-RPC `eth_getLogs` 100-block cap |
 | `src/events.ts` | `OrderCreated` / `Trade` / `MarketRegistered` receipt parsers | works |
+
+> `usdc-check.ts` / `swap-probe.ts` are retained as historical evidence from
+> the earlier tUSDC investigation; the shipped spike does not touch tUSDC.
 
 ## Findings worth knowing
 
@@ -145,24 +195,26 @@ Re-runnability:
   still ships `config.json` with *dead* addresses (Router
   `0x1f5A...7187`, MarginAccount `0xdDDa...2d9` — 0 code bytes). The
   Contract-addresses page is correct.
-- **Official MON/USDC market is empty:** its L2 book *and* AMM vault have zero
-  liquidity, so `Router.anyToAnySwap` MON→USDC reverts — there is currently no
-  scriptable path to acquire tUSDC on testnet.
-- **No mint on tUSDC:** the doc-published USDC is a bare ERC-20 with no
-  `mint`/`faucet`/`grab`/`drip` entry points (probed).
-- **Monad public RPC** caps `eth_getLogs` at 100-block windows — batch scans
-  must chunk (multi-sig/registry enumeration not done for this spike).
-- Trade verification is done from `Trade` events + `getL2OrderBook` +
+- **A custom quote token works through the official Router:** `Router.deployProxy`
+  accepted `SPIKE/MOCKUSD` with no restrictions on the quote asset — you can
+  create a market for *any* paired ERC-20s on Kuru.
+- **`Trade` verification** is done from `Trade` events + `getL2OrderBook` +
   `s_orders` + ERC-20 balances; Kuru has no on-chain `getUserTrades` getter.
-- `IOC.placeMarket` sell `size` is parsed in **base** units (SPIKE) with
-  `minAmountOut` in **quote** units (USDC) — the config documents this.
+- **Units:** `IOC.placeMarket` sell `size` is parsed in **base** units (SPIKE,
+  18 dec) with `minAmountOut` in **quote** units (6 dec). Order-book sizes are
+  stored in `sizePrecision` units (`10^4`); prices in `pricePrecision` units
+  (`10^6`). `formatUnits` needs the *decimal counts* (4 / 6), not the raw
+  multipliers (a `decimals=10000` call throws `invalid decimal size`).
+- **Monad public RPC** caps `eth_getLogs` at 100-block windows — batch scans
+  must chunk.
 
 ## Files
 
 ```
 spike/
   package.json / tsconfig.json / .env.example
-  contracts/SpikeToken.sol        # placeholder mintable ERC-20
+  contracts/SpikeToken.sol        # placeholder mintable ERC-20 (18 dec, base)
+  contracts/MockUSD.sol           # mock mintable ERC-20 (6 dec, quote)
   src/config.ts                   # every address + doc source
   src/events.ts                   # event receipt parsers
   scripts/compile.ts, probe.ts, swap-probe.ts, l2.ts, spike.ts, scan.ts

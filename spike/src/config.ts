@@ -44,6 +44,14 @@ export const SPIKE_SYMBOL = "SPIKE";
 export const SPIKE_DECIMALS = 18;
 export const SPIKE_INITIAL_SUPPLY = "1000000"; // 1M SPIKE to the deployer
 
+// QUOTE token for the spike market: a self-deployed, mintable mock (6 decimals).
+// Chosen so the spike is self-sufficient - no external testnet USDC needed.
+export const MOCKUSD_NAME = "Mock USD";
+export const MOCKUSD_SYMBOL = "MOCKUSD";
+export const MOCKUSD_DECIMALS = 6;
+export const MOCKUSD_INITIAL_SUPPLY = "1000000"; // 1M MOCKUSD to the deployer
+export const MOCKUSD_MINT_TO_SELF = "10000"; // extra MOCKUSD minted to the wallet if short
+
 // Market: 1 SPIKE = 0.001 USDC at creation
 export const MARKET_TYPE = 0; // NO_NATIVE: both base and quote are ERC-20
 export const TARGET_PRICE_QUOTE = 1; // 1 USDC
@@ -56,12 +64,12 @@ export const MAKER_FEE_BPS = 10;
 export const KURU_AMM_SPREAD = ethers.BigNumber.from(100); // 1%
 
 // Order sizes for the spike (human units). Note: IOC.placeMarket SELL size is in
-// BASE units (SPIKE), minAmountOut is in QUOTE units (USDC).
+// BASE units (SPIKE), minAmountOut is in QUOTE units (MOCKUSD).
 export const LIMIT_BUY_SIZE = "1000"; // SPIKE to buy (maker, uses margin)
-export const LIMIT_BUY_PRICE = "0.001"; // USDC per SPIKE
+export const LIMIT_BUY_PRICE = "0.001"; // MOCKUSD per SPIKE
 export const MARKET_SELL_SIZE = "900"; // SPIKE to sell (taker, from wallet)
-export const MARKET_SELL_MIN_OUT = "0.8"; // min USDC received (gross ≈ 0.9, net ≈ 0.8973)
-export const MARGIN_DEPOSIT_USDC = "2"; // margin deposit for the limit buy (1.0 + buffer)
+export const MARKET_SELL_MIN_OUT = "0.8"; // min MOCKUSD received (gross ≈ 0.9, net ≈ 0.8973)
+export const MARGIN_DEPOSIT_QUOTE = "2"; // margin deposit for the limit buy (1.0 + buffer)
 export const SPIKE_MINT_TO_SELF = "1000000"; // SPIKE minted to the wallet for selling
 
 export function getWalletAddress(): string {

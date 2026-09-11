@@ -1,6 +1,6 @@
 /**
- * Compiles contracts/SpikeToken.sol with solc-js and writes artifacts.
- * Usage: npm run compile
+ * Compiles contracts/*.sol with solc-js and writes one artifact JSON per
+ * contract to artifacts/. Usage: npm run compile
  */
 import * as fs from "fs";
 import * as path from "path";
@@ -9,14 +9,18 @@ import * as path from "path";
 const solc = require("solc");
 
 const projectRoot = path.join(__dirname, "..");
-const sourcePath = path.join(projectRoot, "contracts", "SpikeToken.sol");
-const source = fs.readFileSync(sourcePath, "utf8");
+const contractsDir = path.join(projectRoot, "contracts");
+const sources: Record<string, { content: string }> = {};
+const contractNames: string[] = [];
+
+for (const file of fs.readdirSync(contractsDir).filter((f) => f.endsWith(".sol"))) {
+  sources[file] = { content: fs.readFileSync(path.join(contractsDir, file), "utf8") };
+  contractNames.push(file.replace(/\.sol$/, ""));
+}
 
 const input = {
   language: "Solidity",
-  sources: {
-    "SpikeToken.sol": { content: source },
-  },
+  sources,
   settings: {
     optimizer: { enabled: true, runs: 200 },
     outputSelection: {
@@ -35,21 +39,19 @@ if (output.errors) {
   }
 }
 
-const contract = output.contracts["SpikeToken.sol"].SpikeToken;
-if (!contract) {
-  console.error("SpikeToken not found in compilation output");
-  process.exit(1);
-}
-
-const artifact = {
-  contractName: "SpikeToken",
-  abi: contract.abi,
-  bytecode: "0x" + contract.evm.bytecode.object,
-};
-
 const artifactsDir = path.join(projectRoot, "artifacts");
 fs.mkdirSync(artifactsDir, { recursive: true });
-const outPath = path.join(artifactsDir, "SpikeToken.json");
-fs.writeFileSync(outPath, JSON.stringify(artifact, null, 2));
-console.log("Wrote", outPath);
-console.log("ABI entries:", contract.abi.length);
+
+for (const file of Object.keys(output.contracts)) {
+  for (const [contractName, contract] of Object.entries<any>(output.contracts[file])) {
+    const artifact = {
+      contractName,
+      abi: contract.abi,
+      bytecode: "0x" + contract.evm.bytecode.object,
+    };
+    const outPath = path.join(artifactsDir, `${contractName}.json`);
+    fs.writeFileSync(outPath, JSON.stringify(artifact, null, 2));
+    console.log("Wrote", outPath, `(ABI entries: ${contract.abi.length})`);
+  }
+}
+console.log("Compiled contracts:", contractNames.join(", "));
