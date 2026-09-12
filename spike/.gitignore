@@ -4,3 +4,4 @@ artifacts/
 .env
 .spike-result.json
 *.log
+.core-result.json

@@ -65,6 +65,72 @@ re-run places a fresh bid and sells against the old rest first, which is exactly
 how a real book behaves). Balances reconcile exactly with the math in
 [The trade plan](#the-trade-plan).
 
+## Core product contracts — on-chain artifacts (Task 02)
+
+The core mzNGN product contracts (`PriceOracle`, `MzngnToken`, `CollateralVault`,
+plus a fresh `MockUSD` collateral instance) were deployed on Monad testnet by
+`npm run core` with the same disposable wallet:
+
+| Contract | Address | Deploy tx |
+|---|---|---|
+| PriceOracle | `0x914265f10042c56020205c4258ec19f99024e6a5` | `0xdeafaaa8…8888a7d` |
+| MockUSD (collateral, 6 dp) | `0xe4d3bd26ab76f5e7a21122feeec0bc0d86547e2e` | `0xb00ea59f…e20bb5a` |
+| MzngnToken (18 dp) | `0x7f895bf9bbe1ef044af95c3c6d1d842e96cda8f7` | `0x8a823baf…e0f43c` |
+| CollateralVault | `0x5eee7da8bdb8680da889502f655c5c2a5bc9cddb` | `0x650a33fb…93e647d` |
+| `setVault` (vault→token) | — | `0xa99507d2…b38b53d2` |
+| initial price publish (50.00 mUSD/bag) | — | `0xdd66751b…c5fd2d` |
+
+Product rule (from the spec): 1 mzNGN = current reference price of one 100 kg bag
+of maize in mUSD; the vault mints mzNGN against mUSD at **150% collateralization**
+with a **single authorized** oracle publisher.
+
+Mint/redeem math (full-precision `mulDiv`, OZ 512-bit):
+`minted18 = mulDiv(deposit6, 2e18, price6 * 3)`, `payout6 = mulDiv(burn18, price6 * 3, 2e18)`.
+Worked example at price **50.00**: deposit **150 mUSD → 2.0 mzNGN** (tx
+`0x7eef5ed2…39c150`, re-proven `0xfb33bb58…6daf7`); burn **1.0 mzNGN → 75.00
+mUSD** (tx `0x642f814a…f27e74`, re-proven `0xb2f9a976…8bc22fa`). 2/3 of the
+deposit is leverage, 1/3 is margin — exactly 150%.
+
+Verified rejection cases (each reverted as intended, `eth_call` simulation +
+custom-error/`Error(string)` shape check):
+
+| Case | Expect | Result |
+|---|---|---|
+| oracle-unauthorized | `NotAuthorized` | ok |
+| oracle-zero-price | `ZeroPrice` | ok |
+| oracle-wild-up (>30% move) | `TooLargeMove` | ok |
+| oracle-wild-down (>30% move) | `TooLargeMove` | ok |
+| vault-mint-below-min (<1.00 mUSD) | `InsufficientCollateral` | ok |
+| vault-mint-no-allowance | `MockUSD: allowance exceeded` | ok |
+| vault-over-redeem (burn > balance) | `mzNGN: burn exceeds balance` | ok |
+
+Staleness: enforced on **reads** — `getPrice()` reverts with `StalePrice` once
+`block.timestamp - updatedAt > stalenessWindow` (48 h in production, 60 s in the
+test probe). Proven with a 60 s-window probe oracle
+(`0x2819f38a4aef2b219f5790450d8dcce201cb91f7`): an in-band +10% publish was
+accepted, and `getPrice()` reverted after window expiry (runs 1–3).
+
+Decisions & deviations (flagged for the orchestrator):
+
+- `mockUSD` reuses the spike's `MockUSD.sol` source but was deployed as a
+  **fresh instance** (the spike instance has a different role — market quote).
+- `stalenessWindow` is constructor-injectable; production value 48 h.
+- Initial price 50.00 mUSD/bag is a worked-example anchor (real NBS reference
+  ≈ 53 mUSD/bag at ₦1,600/$) — publish an updated price via `updatePrice` when
+  launching.
+- `MIN_COLLATERAL = 1.00 mUSD` dust guard on mint.
+- **No liquidation mechanism** — out of scope for this task, flagged as a known
+  MVP limitation.
+- Staleness enforced on reads, not as a hard cap on `updatePrice` (the publisher
+  can bump the price even from a stale baseline — interpreted from the spec).
+
+Gas note: the testnet gateway bills ~`gasLimit × (baseFee + priorityFee)` per
+broadcast, so a low wallet balance blocks even small txs. The wallet
+(`0x0f2a7EAd…b58da`) now holds **~0.0104 MON** — enough only for read-only
+verification runs. Use `CORE_SKIP_MINT_REDEEM=1` + `CORE_SKIP_STALE_PROBE=1`
+for gas-free harness runs, or refill from `https://faucet.monad.xyz` before the
+next task that needs broadcasts.
+
 ## Addresses used (all from official docs)
 
 | Item | Address / URL | Source |
@@ -149,8 +215,9 @@ self-deployed tokens that `spike.ts` mints itself.
 cd spike
 npm install          # already done; ethers 5.7.1, tsx, solc, @kuru-labs/kuru-sdk 0.0.95
 cp .env.example .env # fill PRIVATE_KEY (disposable key already in .env)
-npm run compile      # builds artifacts/*.json (SpikeToken + MockUSD)
+npm run compile      # builds artifacts/*.json (all contracts in contracts/)
 npm run spike        # end-to-end: deploy tokens+market, trade, verify
+npm run core         # Task 02: deploy core product, mint/redeem loop, rejection harness
 ```
 
 Re-runnability:
@@ -215,8 +282,11 @@ spike/
   package.json / tsconfig.json / .env.example
   contracts/SpikeToken.sol        # placeholder mintable ERC-20 (18 dec, base)
   contracts/MockUSD.sol           # mock mintable ERC-20 (6 dec, quote)
-  src/config.ts                   # every address + doc source
+  contracts/PriceOracle.sol       # Task 02: oracle (updater-restricted, band+stale checks)
+  contracts/MzngnToken.sol        # Task 02: synthetic mzNGN (18 dec, vault-only mint/burn)
+  contracts/CollateralVault.sol   # Task 02: 150% collateralized mint/redeem
+  src/config.ts                   # every address + doc source + CORE_* knobs
   src/events.ts                   # event receipt parsers
-  scripts/compile.ts, probe.ts, swap-probe.ts, l2.ts, spike.ts, scan.ts
+  scripts/compile.ts, probe.ts, swap-probe.ts, l2.ts, spike.ts, scan.ts, core.ts
   README.md                       # this report
 ```

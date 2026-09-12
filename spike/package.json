@@ -2,12 +2,13 @@
   "name": "monad-maize-spike",
   "version": "0.1.0",
   "private": true,
-  "description": "Technical spike: SPIKE ERC-20 on Monad testnet, Kuru market vs testnet USDC, maker limit + taker market order, trade verified on-chain (kuru-sdk).",
+  "description": "Monad Maize: SPIKE/Kuru technical spike (Task 01) + core mzNGN product contracts: PriceOracle, MockUSD, MzngnToken, CollateralVault (Task 02).",
   "type": "commonjs",
   "scripts": {
     "compile": "tsx scripts/compile.ts",
     "probe": "tsx scripts/probe.ts",
-    "spike": "tsx scripts/spike.ts"
+    "spike": "tsx scripts/spike.ts",
+    "core": "tsx scripts/core.ts"
   },
   "dependencies": {
     "@kuru-labs/kuru-sdk": "0.0.95",

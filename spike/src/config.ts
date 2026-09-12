@@ -77,3 +77,26 @@ export function getWalletAddress(): string {
   if (!PRIVATE_KEY) throw new Error("PRIVATE_KEY not set in .env");
   return new ethers.Wallet(PRIVATE_KEY).address;
 }
+
+// ---------------------------------------------------------------------------
+// Core product (Task 02): PriceOracle + MzngnToken + CollateralVault.
+// All on MONAD TESTNET only. Numbers below are the mzNGN product parameters.
+// ---------------------------------------------------------------------------
+
+// Initial reference price published to the oracle: mUSD per 100kg bag of
+// Nigerian maize. 50.00 mUSD chosen as a clean worked-example anchor; real
+// NBS-style quotes (e.g. ~NGN 85,000/bag ~= 53 mUSD at ~NGN 1,600/USD) slot
+// right in here. Price is stored with 6 decimals (mUSD scale).
+export const CORE_INITIAL_PRICE_MUSD = "50.00";
+export const CORE_INITIAL_SOURCE = "NBS Food Price Tracker (example)";
+export const CORE_ORACLE_STALENESS_HOURS = 48; // fresh window before reads revert
+
+// The mint/redeem loop proven on-chain by scripts/core.ts:
+export const CORE_MINT_DEPOSIT_MUSD = "150"; // deposit 150.00 mUSD -> expect 2.0 mzNGN @ 50.00
+export const CORE_REDEEM_MZNGN = "1"; // burn 1.0 mzNGN @ 50.00 -> expect 75.00 mUSD
+export const CORE_MOCKUSD_MINT_TO_SELF = "1000"; // extra MOCKUSD minted if the wallet is short
+
+// Dedicated tiny-window oracle probe used to prove that getPrice() rejects
+// STALE prices on-chain (wait ~= probe window, then expect a revert).
+// This avoids waiting the full 48h production window.
+export const CORE_STALE_PROBE_WINDOW_SECONDS = 60;
