@@ -1,0 +1,6 @@
+# Monad Maize web app — build output & local deps
+node_modules/
+dist/
+*.local
+.env
+vite-server.log
