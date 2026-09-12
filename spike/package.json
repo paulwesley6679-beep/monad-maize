@@ -1,0 +1,26 @@
+{
+  "name": "monad-maize-spike",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Technical spike: SPIKE ERC-20 on Monad testnet, Kuru market vs testnet USDC, maker limit + taker market order, trade verified on-chain (kuru-sdk).",
+  "type": "commonjs",
+  "scripts": {
+    "compile": "tsx scripts/compile.ts",
+    "probe": "tsx scripts/probe.ts",
+    "spike": "tsx scripts/spike.ts"
+  },
+  "dependencies": {
+    "@kuru-labs/kuru-sdk": "0.0.95",
+    "dotenv": "^16.4.5",
+    "ethers": "5.7.1",
+    "solc": "^0.8.24"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.0",
+    "typescript": "^5.4.5"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
