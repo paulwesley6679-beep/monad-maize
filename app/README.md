@@ -63,6 +63,10 @@ sourced value** — not a demo placeholder:
 - **Source:** NBS "Selected Food Price Watch" report, May 2026 edition
   (`https://microdata.nigerianstat.gov.ng/index.php/catalog/162/download/1427`)
   — maize (white) national average retail price, `815.8250150106671` NGN/kg.
+  May 2026 is the newest edition published: the full release list for the series
+  (NBS National Data Archive catalog 162, enumerated via its metadata export on
+  `2026-09-17`) ends at May 2026 — no June/July/August 2026 edition exists yet.
+  So this is the most current authoritative value available, not a stale one.
 - **Conversion:** 100 kg bag → `81,582.50150106671` NGN, divided by the NGN/USD
   mid-market rate from `https://open.er-api.com/v6/latest/USD`
   (`1327.882853` NGN/USD on 2026-09-17) → `61.438026` mUSD/bag. The rate is
