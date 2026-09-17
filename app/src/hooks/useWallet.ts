@@ -8,13 +8,16 @@
 // ---------------------------------------------------------------------------
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BrowserProvider, JsonRpcProvider } from "ethers";
+import { BrowserProvider, type JsonRpcProvider } from "ethers";
 
 import {
   CHAIN_ID,
   MONAD_TESTNET_PARAMS,
+  RPC_FALLBACK_URL,
+  RPC_TIMEOUT_MS,
   RPC_URL,
 } from "../config";
+import { ResilientRpcProvider } from "../lib/provider";
 import { describeError, type AppError } from "../lib/errors";
 
 export type WalletStatus = "disconnected" | "connecting" | "connected" | "wrong-network";
@@ -130,8 +133,13 @@ export function useWallet() {
     setBrowserProvider(provider);
   }, []);
 
-  /** Public read provider (independent of the wallet). */
-  const publicProvider = useMemo(() => new JsonRpcProvider(RPC_URL), []);
+  /** Public read provider (independent of the wallet). Retries across the
+   *  configured RPC endpoints so intermittent RPC flakiness doesn't surface
+   *  as generic network errors in the panels. */
+  const publicProvider = useMemo(
+    () => new ResilientRpcProvider([RPC_URL, RPC_FALLBACK_URL], { timeoutMs: RPC_TIMEOUT_MS }),
+    []
+  );
 
   const connect = useCallback(async () => {
     const etht = hasWindowEthereum();

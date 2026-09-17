@@ -17,8 +17,9 @@
 // Never enable this in production, and never set a private key you care about.
 // ---------------------------------------------------------------------------
 
-import { JsonRpcProvider, Wallet } from "ethers";
-import { RPC_URL } from "./config";
+import { Wallet } from "ethers";
+import { RPC_FALLBACK_URL, RPC_TIMEOUT_MS, RPC_URL } from "./config";
+import { ResilientRpcProvider } from "./lib/provider";
 
 const enum Methods {
   RequestAccounts = "eth_requestAccounts",
@@ -42,7 +43,9 @@ export function isDevWalletEnabled(): boolean {
 
 export function installDevWallet(): void {
   const key = (import.meta.env.VITE_DEV_WALLET_KEY as string | undefined)?.trim() || "";
-  const publicProvider = new JsonRpcProvider(RPC_URL);
+  const publicProvider = new ResilientRpcProvider([RPC_URL, RPC_FALLBACK_URL], {
+    timeoutMs: RPC_TIMEOUT_MS,
+  });
   // jsonrpcProvider.send() needs a Method-typed payload compatible with
   // ethers' Request; we only forward well-known JSON-RPC methods here.
   const wallet = new Wallet(key || Wallet.createRandom().privateKey, publicProvider);

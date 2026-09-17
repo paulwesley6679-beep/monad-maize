@@ -23,9 +23,25 @@
 export const CHAIN_ID = 10143;
 export const CHAIN_NAME = "Monad Testnet";
 
-// Public RPC. CORS-enabled (verified: returns Access-Control-Allow-Origin for
-// browser origins), so public reads work before a wallet is connected.
-export const RPC_URL = "https://testnet-rpc.monad.xyz";
+// Public RPC endpoints. CORS-enabled (verified: returns
+// Access-Control-Allow-Origin for browser origins), so public reads work
+// before a wallet is connected.
+//
+// The primary endpoint is intermittently slow/unreachable from some networks
+// (requests hang for >10s or die at the TCP level → "Failed to fetch" with no
+// HTTP status). To stay resilient the app reads/broadcasts through
+// lib/provider.ts, which retries each request across PRIMARY → FALLBACK with
+// a per-attempt timeout. Both endpoints below are overridable at dev/build
+// time via Vite env (see .env.example):
+//   VITE_RPC_URL          — primary (default: testnet-rpc.monad.xyz)
+//   VITE_RPC_FALLBACK_URL — fallback (default: monad-testnet.drpc.org)
+const _envRpc = (import.meta.env.VITE_RPC_URL as string | undefined)?.trim();
+const _envFallback = (import.meta.env.VITE_RPC_FALLBACK_URL as string | undefined)?.trim();
+
+export const RPC_URL = _envRpc || "https://testnet-rpc.monad.xyz";
+export const RPC_FALLBACK_URL = _envFallback || "https://monad-testnet.drpc.org";
+/** Per-attempt timeout used by the resilient RPC client (lib/provider.ts). */
+export const RPC_TIMEOUT_MS = 12_000;
 
 export const EXPLORER_URL = "https://testnet.monadvision.com";
 export const EXPLORER_TX = (hash: string) => `${EXPLORER_URL}/tx/${hash}`;
