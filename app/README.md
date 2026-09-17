@@ -51,6 +51,37 @@ The app then simulates a wallet with that key. It prints a warning to the
 console and must never be used against anything but throwaway testnet funds.
 `.env` is gitignored.
 
+## Live price & publishing real data
+
+The `PriceOracle` is fed by a simple manual-publish script
+(`scripts/publish-real-price.mjs`). The currently live price is a **real,
+sourced value** — not a demo placeholder:
+
+- **Price:** `61.438026` mUSD per 100 kg bag (raw `61438026`), published
+  `2026-09-17` (tx
+  `0x030ff96853a4e08c844d83edde1e79baa6803bb609631bfebc64fcc18058ab96`).
+- **Source:** NBS "Selected Food Price Watch" report, May 2026 edition
+  (`https://microdata.nigerianstat.gov.ng/index.php/catalog/162/download/1427`)
+  — maize (white) national average retail price, `815.8250150106671` NGN/kg.
+- **Conversion:** 100 kg bag → `81,582.50150106671` NGN, divided by the NGN/USD
+  mid-market rate from `https://open.er-api.com/v6/latest/USD`
+  (`1327.882853` NGN/USD on 2026-09-17) → `61.438026` mUSD/bag. The rate is
+  fetched fresh on every run and the computed price is validated against the
+  oracle's ±30% (`MAX_CHANGE_BPS = 3000`) move band before anything is signed.
+- Why not the other candidates: the NFPT dashboard
+  (`nigeriafoodpricetracking.ng`) is a Tableau embed with no API and its pilot
+  CSV ends 2026-06-25; the World Bank HFCP microdata is login-gated and the WB
+  API food-price endpoints hang from this network. The NBS monthly report is
+  the most current public, authoritative series.
+
+Re-publish a fresh price anytime (needs the authorized updater key in
+`app/.env`, `--dry-run` skips the broadcast):
+
+```bash
+node scripts/publish-real-price.mjs --dry-run   # preflight only
+node scripts/publish-real-price.mjs             # broadcast + verify
+```
+
 ## Building for production
 
 ```bash
@@ -88,4 +119,6 @@ app/
   out (a known Monad testnet quirk, also noted in the spike README). Reads
   retry on the next 10 s poll; a failed tx just shows a retry-able banner.
 - This is a hackathon MVP: testnet only, funds are play-money, no accounts
-  system, no price feed automation beyond the demo value of 50.00 mUSD/bag.
+  system, no automated price feed (the oracle carries a real NBS-sourced value
+  published via `scripts/publish-real-price.mjs`; it must be refreshed within
+  the 48 h staleness window to keep mint/redeem active).

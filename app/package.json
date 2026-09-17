@@ -8,7 +8,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "publish-price:dry-run": "node scripts/publish-real-price.mjs --dry-run",
+    "publish-price": "node scripts/publish-real-price.mjs"
   },
   "dependencies": {
     "ethers": "^6.13.4",
