@@ -1,0 +1,154 @@
+/* ==========================================================================
+   index.css — Minimal, functional styling for the Monad Maize web app.
+   Clarity over polish; a future task can redesign once the flows are proven.
+   ========================================================================== */
+
+:root {
+  --bg: #fafaf8;
+  --bg-card: #ffffff;
+  --border: #e0ddd8;
+  --text: #1a1a1a;
+  --muted: #7a7768;
+  --accent: #2c6e3a;
+  --accent-light: #e4f2e7;
+  --error: #b3261e;
+  --error-bg: #fdecea;
+  --warn: #8a6b2c;
+  --warn-bg: #fef7e0;
+  --info-bg: #e8f0fa;
+  --ok-bg: #e4f2e7;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+
+*,*::before,*::after { box-sizing: border-box; }
+
+html { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; font-size: 15px; line-height: 1.5; }
+body { margin: 0; background: var(--bg); color: var(--text); }
+#root { max-width: 860px; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
+
+/* ---- page layout ---- */
+.page { display: flex; flex-direction: column; gap: 1rem; }
+
+.header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: .75rem; }
+.header h1 { margin: 0; font-size: 1.5rem; }
+.subtitle { margin: .15rem 0 0; color: var(--muted); font-size: .85rem; }
+
+.account-line { font-size: .85rem; margin: 0; }
+.account-line a { word-break: break-all; }
+
+.grid { display: flex; flex-direction: column; gap: 1rem; }
+
+/* ---- cards ---- */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow);
+}
+.card-title { font-weight: 600; font-size: .95rem; margin-bottom: .5rem; }
+
+/* ---- key / value rows ---- */
+.kv { display: grid; gap: .3rem .75rem; }
+.kv div { display: flex; gap: .5rem; }
+.kv dt { color: var(--muted); min-width: 120px; }
+.kv dd { margin: 0; font-weight: 500; }
+
+/* ---- price display ---- */
+.price-row { margin: .5rem 0; }
+.price-big { font-size: 1.9rem; font-weight: 700; letter-spacing: -.02em; }
+
+/* ---- tabs ---- */
+.tabs { display: flex; gap: 0; margin-bottom: .75rem; border-bottom: 2px solid var(--border); }
+.tab {
+  padding: .45rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: .9rem;
+  font-weight: 500;
+  color: var(--muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.tab:hover { color: var(--text); }
+.tab-active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* ---- forms ---- */
+.form-row { display: flex; flex-direction: column; gap: .5rem; }
+.form-row label { font-size: .85rem; font-weight: 500; display: flex; flex-direction: column; gap: .2rem; }
+.form-row input {
+  padding: .5rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1rem;
+  background: var(--bg);
+}
+.form-row input:focus { outline: 2px solid var(--accent); border-color: var(--accent); }
+.form-row input:disabled { opacity: .6; }
+.preview { min-height: 1.5em; margin: .25rem 0 0; font-size: .9rem; color: var(--muted); }
+.preview-has { color: var(--accent); font-weight: 500; }
+.note { font-size: .8rem; margin: .35rem 0 0; }
+
+/* ---- buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: .5rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: .9rem; font-weight: 500;
+  cursor: pointer;
+}
+.btn:disabled { opacity: .55; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover:not(:disabled) { background: #245c2f; }
+.btn-ghost { background: transparent; color: var(--text); }
+.btn-ghost:hover { background: rgba(0,0,0,.04); }
+.btn-sm { padding: .3rem .75rem; font-size: .8rem; }
+
+/* ---- badges ---- */
+.badge {
+  display: inline-block;
+  padding: .15rem .5rem;
+  border-radius: 9999px;
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.badge-ok { background: var(--ok-bg); color: var(--accent); }
+.badge-warn { background: var(--warn-bg); color: var(--warn); }
+
+/* ---- banners ---- */
+.banner {
+  padding: .75rem 1rem;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+}
+.banner strong { display: block; font-size: .9rem; }
+.banner p { margin: .25rem 0 0; font-size: .85rem; }
+.banner-ok { background: var(--ok-bg); color: #1a5d2a; }
+.banner-error { background: var(--error-bg); color: var(--error); }
+.banner-warn { background: var(--warn-bg); color: #5c4b18; }
+.banner-info { background: var(--info-bg); color: #1a3c6a; }
+
+/* ---- warnings inline ---- */
+.warn { color: var(--warn); font-size: .85rem; margin: .15rem 0 0; }
+
+/* ---- link ---- */
+.link { color: var(--accent); text-decoration: none; }
+.link:hover { text-decoration: underline; }
+
+/* ---- muted text ---- */
+.muted { color: var(--muted); }
+
+/* ---- footer ---- */
+footer { font-size: .8rem; margin-top: 2rem; text-align: center; }
+
+/* ---- responsive ---- */
+@media (max-width: 480px) {
+  .header { flex-direction: column; }
+  .kv dt { min-width: auto; }
+}
