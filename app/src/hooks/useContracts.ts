@@ -26,6 +26,12 @@ import { describeError, type AppError } from "../lib/errors";
 
 export type TxPhase = "idle" | "approving" | "minting" | "redeeming" | "success" | "failed";
 
+// Some chain-10143 RPC endpoints (notably the drpc fallback) reject eth_call
+// requests that carry no explicit gas field, surfacing as an ethers
+// "missing revert data" CALL_EXCEPTION. Passing a gas cap on read-only oracle
+// calls keeps the price panel working across both configured endpoints.
+const ORACLE_READ_OVERRIDES = { gasLimit: 300_000n };
+
 export interface OracleState {
   price: bigint | null;
   updatedAt: number | null;
@@ -105,10 +111,10 @@ export function useContracts({ account, networkOk, signer, walletProvider, publi
     const runner = argsRef.current.walletProvider ?? argsRef.current.publicProvider;
     try {
       const oracle = oracleContract(runner as Parameters<typeof oracleContract>[0]);
-      const [price, updatedAt, source] = await oracle.getPrice();
+      const [price, updatedAt, source] = await oracle.getPrice(ORACLE_READ_OVERRIDES);
       let staleness: bigint | null = null;
       try {
-        staleness = await oracle.stalenessWindow();
+        staleness = await oracle.stalenessWindow(ORACLE_READ_OVERRIDES);
       } catch {
         staleness = null;
       }
