@@ -126,10 +126,95 @@ Decisions & deviations (flagged for the orchestrator):
 
 Gas note: the testnet gateway bills ~`gasLimit × (baseFee + priorityFee)` per
 broadcast, so a low wallet balance blocks even small txs. The wallet
-(`0x0f2a7EAd…b58da`) now holds **~0.0104 MON** — enough only for read-only
-verification runs. Use `CORE_SKIP_MINT_REDEEM=1` + `CORE_SKIP_STALE_PROBE=1`
-for gas-free harness runs, or refill from `https://faucet.monad.xyz` before the
-next task that needs broadcasts.
+(`0x0f2a7EAd…b58da`) now holds **~19.38 MON** after completing this task. Fund
+from `https://faucet.monad.xyz` when low.
+
+## Task 05 — mzNGN on a real Kuru orderbook (on-chain)
+
+Lists the real `MZNGN / MOCKUSD` market on the official Kuru testnet orderbook,
+ties the Task 02 product contracts (PriceOracle, MockUSD, MzngnToken,
+CollateralVault) into the Task 01 Kuru infrastructure, and executes a real
+on-chain trade.
+
+```
+┌─────────────────┐   ┌───────────────────────────────────────────────────────────────┐
+│ list-on-kuru.ts │──▶│ 1. Verify Task 02 contracts are live (eth_getCode)           │
+│ (npm run        │   │ 2. Vault mint top-up: deposit mUSD → mint mzNGN (Task 03)    │
+│  list-on-kuru)  │   │ 3. ParamCreator.deployMarket (Router.deployProxy)            │
+│                 │   │ 4. MarginAccount deposits (mUSD for bid, mzNGN for ask)      │
+│                 │   │ 5. GTC.placeLimit BUY 20 mzNGN @ 61.44 (post-only, maker)   │
+│                 │   │ 6. GTC.placeLimit SELL 20 mzNGN @ 61.50144 (post-only)       │
+│                 │   │ 7. IOC.placeMarket SELL 15 mzNGN (fill-or-kill, taker)       │
+│                 │   │ 8. Verify: Trade events, L2 book, s_orders, balances         │
+└─────────────────┘   └───────────────────────────────────────────────────────────────┘
+```
+
+### Market parameters
+
+Anchor: `1 mzNGN = 61.44 mUSD`. The oracle last published **61.438026
+mUSD/bag** (Task 02, staleness window 48 h). The anchor `61.44` is the nearest
+book-aligned tick (0.003% above spot), computed via
+`ParamCreator.calculatePrecisions(quote=6144, base=100, maxPrice=200, minSize=1, tickBps=10)`:
+
+| Parameter | Value | Meaning |
+|---|---|---|
+| `pricePrecision` | `100_000` | 5 decimal places in mUSD per mzNGN |
+| `sizePrecision` | `10_000_000` | 7 decimal places in mzNGN |
+| `tickSize` | `6144` | `0.06144 mUSD` (0.1% = 10 bps) |
+| `minSize` | `10_000_000` | `1 mzNGN` |
+| `maxSize` | `1_000_000_000` | `100 mzNGN` per order |
+| `takerFeeBps` / `makerFeeBps` | `30` / `10` | taker 0.3%, maker 0.1% |
+| `kuruAmmSpread` | `100` | 1% AMM spread |
+
+Grid check (on-chain): `61.44` = `tickSize × 1000` ✓ aligned;
+`61.50144` = `tickSize × 1001` ✓ aligned.
+
+### On-chain artifacts
+
+Executed by `npm run list-on-kuru` on Monad testnet (2026-09-17):
+
+| Step | Address / tx | Notes |
+|---|---|---|
+| Vault top-up (Task 03 path) | tx `0xb0a5da…212e04` | deposit 3000 mUSD → 32.55 mzNGN minted |
+| MZNGN/MOCKUSD market | `0xad98efa71fa8f13cb7ed7d0a9fa43257077a7b17` | deploy tx `0x8062b9…a753f4` |
+| AMM vault (Kuru) | `0xbff9Db42a9F35AC7b748721eFd83912CBCe0430C` | created with market |
+| Margin deposit (quote) | tx `0x5743b7…eb279a3` | 1400 mUSD → funds maker bid |
+| Margin deposit (base) | tx `0xfa10ff…0e11fe` | 25 mzNGN → funds maker ask |
+| Limit BUY (maker, postOnly) | tx `0x30746d…58d71` | orderId 7, 20 mzNGN @ 61.44 |
+| Limit SELL (maker, postOnly) | tx `0x3e3ed3…3020c6` | orderId 8, 20 mzNGN @ 61.50144 |
+| Market SELL (taker, FoK) | tx `0x90bf1c…882be` | 15 mzNGN @ 61.44, filled 15e7 raw |
+
+Trade result (from `Trade` event — `orderId=7`, `price=61440000000000000000`
+= **61.44** in 18-dec "wei" scale):
+
+```
+Order book after trade:  bids: [[61.44, 5]]   asks: [[61.50144, 20]]
+maker bid struct (s_orders): size 50000000 = 5.0 mzNGN, price 6144000 = 61.44, isBuy true
+taker MOCKUSD gain: +918.8352 mUSD   (15 × 61.44 − 0.3% taker fee = 918.8352)
+```
+
+### Does Kuru have a testnet UI / explorer?
+
+**No.** Kuru's product UI ([kuru.io](https://kuru.io), `kuru.io/markets`,
+`exchange.kuru.io`) and WebSocket API (`ws.kuru.io`) are **mainnet-only** — they
+do not expose a testnet interface. The Kuru documentation
+([docs.kuru.io](https://docs.kuru.io)) documents contract addresses and the SDK
+but does not list a testnet frontend or public API. The MZNGN/MOCKUSD market is
+therefore **verifiable only on-chain**: via the contract/transaction links above
+(MonadVision testnet explorer), the `getL2OrderBook` SDK reads, `s_orders`
+structs, and `Trade` events — not via any Kuru-hosted web page.
+
+### Re-runnability
+
+```bash
+npm run list-on-kuru   # each run places fresh orders; the book stacks
+```
+
+Set `MARKET_ADDRESS` to reuse an existing market instead of deploying a new one.
+Set `LIST_FORCE_TOPUP=1` to always demonstrate the CollateralVault mint path
+(deposit mUSD → mint mzNGN) even when the wallet already holds enough. All
+other Task 02 contract addresses fall through to `src/config.ts` defaults (the
+live deployments above) and can be overridden via `.env`.
 
 ## Addresses used (all from official docs)
 
@@ -218,6 +303,7 @@ cp .env.example .env # fill PRIVATE_KEY (disposable key already in .env)
 npm run compile      # builds artifacts/*.json (all contracts in contracts/)
 npm run spike        # end-to-end: deploy tokens+market, trade, verify
 npm run core         # Task 02: deploy core product, mint/redeem loop, rejection harness
+npm run list-on-kuru # Task 05: mzNGN on a real Kuru orderbook + executed trade
 ```
 
 Re-runnability:
@@ -287,6 +373,6 @@ spike/
   contracts/CollateralVault.sol   # Task 02: 150% collateralized mint/redeem
   src/config.ts                   # every address + doc source + CORE_* knobs
   src/events.ts                   # event receipt parsers
-  scripts/compile.ts, probe.ts, swap-probe.ts, l2.ts, spike.ts, scan.ts, core.ts
+  scripts/compile.ts, probe.ts, swap-probe.ts, l2.ts, spike.ts, scan.ts, core.ts, list-on-kuru.ts
   README.md                       # this report
 ```

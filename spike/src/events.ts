@@ -8,11 +8,11 @@ import { ethers, BigNumber } from "ethers";
  */
 
 export interface TradeInfo {
-  orderId: BigNumber; // maker order id
+  orderId: BigNumber; // the MAKER order id that was filled
   makerAddress: string;
   takerAddress: string;
-  isBuy: boolean; // true if maker side was a buy
-  price: BigNumber; // price in pricePrecision units
+  isBuy: boolean; // the TAKER order's direction (true = taker bought / maker side was the ask)
+  price: BigNumber; // price raw, 18-decimal "wei" scale (e.g. 61.44 -> 61.44e18)
   filledSize: BigNumber; // filled size in sizePrecision units
 }
 

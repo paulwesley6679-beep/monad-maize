@@ -100,3 +100,43 @@ export const CORE_MOCKUSD_MINT_TO_SELF = "1000"; // extra MOCKUSD minted if the 
 // STALE prices on-chain (wait ~= probe window, then expect a revert).
 // This avoids waiting the full 48h production window.
 export const CORE_STALE_PROBE_WINDOW_SECONDS = 60;
+
+// ---------------------------------------------------------------------------
+// Task 05: mzNGN on a real Kuru orderbook market (MZNGN / MOCKUSD).
+// Uses the Task 02 deployed contracts on MONAD TESTNET (chain 10143) only.
+// ---------------------------------------------------------------------------
+
+// Task 02 deployed addresses (live on chain 10143, verified via eth_getCode).
+// Env overrides: MOCKUSD_ADDRESS / MZNGN_TOKEN_ADDRESS / COLLATERAL_VAULT_ADDRESS /
+// PRICE_ORACLE_ADDRESS / MARKET_ADDRESS (all in .env, same slots as scripts/core.ts).
+export const CORE_MOCKUSD_DEFAULT = "0xe4d3bd26ab76f5e7a21122feeec0bc0d86547e2e"; // MockUSD (6 dec)
+export const MZNGN_TOKEN_DEFAULT = "0x7f895bf9bbe1ef044af95c3c6d1d842e96cda8f7"; // MzngnToken (18 dec)
+export const COLLATERAL_VAULT_DEFAULT = "0x5eee7da8bdb8680da889502f655c5c2a5bc9cddb"; // CollateralVault
+export const PRICE_ORACLE_DEFAULT = "0x914265f10042c56020205c4258ec19f99024e6a5"; // PriceOracle
+
+// Market anchor: 1 mzNGN = 61.44 mUSD (oracle last published 61.438026 mUSD/bag;
+// 61.44 is the nearest book-aligned tick and is 0.003% above the oracle spot).
+// calculatePrecisions(quote=6144, base=100, maxPrice=200, minSize=1, tickBps=10)
+// yields pricePrecision=1e5, sizePrecision=1e7, tickSize=6144 raw (0.06144 mUSD),
+// minSize=1e7 raw (1 mzNGN), maxSize=1e9 raw (100 mzNGN).
+export const LIST_MARKET_TYPE = 0; // NO_NATIVE: both base and quote are ERC-20
+export const LIST_TARGET_PRICE_QUOTE = 6144; // 61.44 mUSD * 100
+export const LIST_TARGET_PRICE_BASE = 100; // per 100 mzNGN -> 61.44 mUSD/mzNGN
+export const LIST_MAX_PRICE = 200; // max expected price in mUSD per mzNGN
+export const LIST_MIN_SIZE = 1; // min order size in mzNGN
+export const LIST_TICK_SIZE_BPS = 10; // 0.1% tick
+export const LIST_TAKER_FEE_BPS = 30;
+export const LIST_MAKER_FEE_BPS = 10;
+export const LIST_KURU_AMM_SPREAD = ethers.BigNumber.from(100); // 1%
+
+// Orders (human units). Limit orders are backed by MarginAccount balances:
+// the bid locks 20*61.44 = 1228.80 mUSD, the ask locks 20 mzNGN (plus buffers).
+export const LIST_MARGIN_QUOTE = "1400"; // mUSD -> MarginAccount (funds the bid)
+export const LIST_MARGIN_BASE = "25"; // mzNGN -> MarginAccount (funds the ask)
+export const LIST_BID_SIZE = "20"; // mzNGN to buy @ 61.44 (maker, post-only)
+export const LIST_BID_PRICE = "61.44"; // mUSD per mzNGN (1000 * tickSize, aligned)
+export const LIST_ASK_SIZE = "20"; // mzNGN to sell @ 61.50144 (maker, post-only)
+export const LIST_ASK_PRICE = "61.50144"; // mUSD per mzNGN (1001 * tickSize, aligned)
+export const LIST_TAKER_SELL_SIZE = "15"; // mzNGN taker market SELL (wallet balance)
+export const LIST_TAKER_SELL_MIN_OUT = "915"; // min mUSD out (gross 921.60; net after 0.3% taker fee ~918.84)
+export const LIST_TOPUP_MUSD = "3000"; // vault mint top-up when short (or LIST_FORCE_TOPUP=1): ~32.55 mzNGN @ 61.438

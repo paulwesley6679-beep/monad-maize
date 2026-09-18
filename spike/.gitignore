@@ -5,3 +5,4 @@ artifacts/
 .spike-result.json
 *.log
 .core-result.json
+.task05-result.json

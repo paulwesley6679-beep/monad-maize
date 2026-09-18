@@ -8,7 +8,8 @@
     "compile": "tsx scripts/compile.ts",
     "probe": "tsx scripts/probe.ts",
     "spike": "tsx scripts/spike.ts",
-    "core": "tsx scripts/core.ts"
+    "core": "tsx scripts/core.ts",
+    "list-on-kuru": "tsx scripts/list-on-kuru.ts"
   },
   "dependencies": {
     "@kuru-labs/kuru-sdk": "0.0.95",
